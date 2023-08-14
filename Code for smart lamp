@@ -8,36 +8,36 @@
 const char* ssid = "Enkindu";
 const char* password = "rimon@555";
 
-JSONVar readings;
 
 unsigned long lastTime = 0;
-unsigned long timerDelay = 500;
+unsigned long timerDelay = 1500;
 
 AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
 
-int sensorValue = 0;
+int status = 0;
 
-String getSensorReading() {
-  readings["sensorValue"] = String(sensorValue);
-  String jsonString = JSON.stringify(readings);
-  return jsonString;
+void notifyClients() {
+  ws.textAll(String(status));
 }
 
-void notifyClients(String sensorReadings) {
-  ws.textAll(sensorReadings);
-}
+String incoMessage;
 
 void handleWebSocketMessage(void* arg, uint8_t* data, size_t len) {
   AwsFrameInfo* info = (AwsFrameInfo*)arg;
-  if (info->final && info->index == 0 && info->len == len && info->opcode == WS_TEXT) {
-    String command = String((char*)data);
-    if (command == "getReadings") {
-      String sensorReadings = getSensorReading();
-      notifyClients(sensorReadings);
-    }
+
+  if (info->final && info->index == 0) {
+    incoMessage = String((char*)data, len);
+  } else {
+    incoMessage += String((char*)data, len);
   }
 }
+
+void processReceivedMessage(const String& message) {
+  // Handle the received message here
+  Serial.println("Received message: " + message);
+}
+
 
 void onEvent(AsyncWebSocket* server, AsyncWebSocketClient* client, AwsEventType type, void* arg, uint8_t* data, size_t len) {
   switch (type) {
@@ -64,52 +64,161 @@ void initWebSocket() {
 const char index_html[] PROGMEM = R"rawliteral(
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="X-UA-Compatible" content="ie=edge">
-  <title>LDR Sensor Readings</title>
-</head>
-<body>
-  <h2>LDR Sensor value: <span id="sensorValue">0</span></h2>
-  <button id="getReadingsBtn">Get Readings</button>
-  <script>
-    var gateway = `ws://${window.location.hostname}/ws`;
-    var websocket;
+    <head>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" integrity="sha512-z3gLpd7yknf1YoNbCzqRKc4qyor8gaKU1qmn+CShxbuBusANI9QpRohGBreCFkKxLhei6S9CQXFEbbKuqLg0DA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <title>My Webpage</title>
+    <style>
+        .head {
+            font-family: Arial, sans-serif;
+            background-color: #3498db;
+            color: #fff;
+            text-align: center;
+            padding: 1em 0;
+            border-radius: 10px;
+        }
+        .heaf {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin-top: 30px;
+            color: rgb(0, 0, 0);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            padding: 1em;
+            background-color: #ffffff;
+            border: 8px;
+            font-size: 28px;
+            border-radius: 8px;
+            margin-left: 50px;
+            margin-right: 50px;
+        }
+        #ok {
+            text-align: center;
+            margin-top: 50px;
+            border-radius: 10px;
+        }
+        #button {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-top: 30px;
+        }
+        #btn {
+            cursor: pointer;
+        }
 
-    window.addEventListener('load', onLoad);
+        .power-button {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-top: 20px;
+        }
+        #power-btn {
+            cursor: pointer;
+            padding: 10px 20px;
+            background-color: #d62830;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+        /*#power-btn:hover {
+            background-color: #2980b9;
+        }*/
+        
+        footer {
+            color: black;
+            font-size: smaller;
+            margin-bottom: 0;
+        }
+    </style>
+    </head>
+    <body>
+        <div class="head">
+            <h1>Smart Light Control</h1>
+        </div>
+        <section class="heaf">
+            <p2 id="ok"><strong>Light Status:</strong></p2>
+            <span id="key">OFF</span>
+        <div id="button">
+            <i id="btn" class="fa-regular fa-lightbulb fa-8x" type="button"></i>
+        </div>
+        </section>
+        <div class="power-button">
+            <button id="power-btn" class="p2btn" type="button">Power Off</button>
+        </div>
+        <footer>
+            <p id="footer">&copy; RS63 Robotics Group-5 All rights reserved.</p>
+        </footer>
+    </body>
+    <script>
+        
+        var gateway = `ws://esp.local/ws`;
+        var websocket;
+        // Init web socket when the page loads
+        window.addEventListener('load', onload);
 
-    function onLoad(event) {
-      initWebSocket();
-    }
+        function onload(event) {
+            initWebSocket();
+        }
 
-    function initWebSocket() {
-      console.log('Trying to open a WebSocket connection...');
-      websocket = new WebSocket(gateway);
-      websocket.onopen = onOpen;
-      websocket.onclose = onClose;
-      websocket.onmessage = onMessage;
-    }
+        function initWebSocket() {
+            console.log('Trying to open a WebSocket connection…');
+            websocket = new WebSocket(gateway);
+            websocket.onopen = onOpen;
+            websocket.onclose = onClose;
+            websocket.onmessage = onMessage;
+        }
 
-    function onOpen(event) {
-      console.log('Connection opened');
-    }
+        // When websocket is established, call the getReadings() function
+        function onOpen(event) {
+            console.log('Connection opened');
+        }
 
-    function onClose(event) {
-      console.log('Connection closed');
-      setTimeout(initWebSocket, 2000);
-    }
+        function onClose(event) {
+            console.log('Connection closed');
+            setTimeout(initWebSocket, 2000);
+        }
+        let dt;
+        function onMessage(event) {
+            console.log(event.data);
+            dt = event.data
+           // btxt.innerHTML = dt;
+           handleText();
+        }
+        
+        function handleText() {
+            if(dt== "1") {
+                btxt.textContent = "ON";
+                bnt.classList.replace("fa-regular", "fa-solid");
+            }
+            else {
+                btxt.textContent = "OFF";
+                bnt.classList.replace("fa-solid", "fa-regular");
+            }
+        }
 
-    function getReadings() {
-      websocket.send('getReadings');
-    }
+        const pBtn = document.getElementById("power-btn");
+        let pressed = false;
+        pBtn.addEventListener('click', function(e) {
+            if(pressed == false) {
+                        pressed = true;
+                        console.log("Button has been clicked");
+                        pBtn.innerHTML = "Power On";
+                        pBtn.style.backgroundColor = '#1bc531';
+                        websocket.send('on');
 
-    function onMessage(event) {
-      var valueElement = document.getElementById('sensorValue');
-      valueElement.textContent = JSON.parse(event.data).sensorValue;
-    }
-  </script>
-</body>
+                } else {
+                    pressed = false;
+                    pBtn.innerHTML = "Power Off";
+                    pBtn.style.backgroundColor = '#d62830';
+                    websocket.send('off');
+                }
+        });
+
+    </script>
 </html>
 )rawliteral";
 
@@ -131,20 +240,33 @@ void setup() {
     request->send_P(200, "text/html", index_html);
   });
 
-  pinMode(13, INPUT);
 
   initWebSocket();
 
   server.begin();
+  pinMode(LED_BUILTIN, OUTPUT);
+  pinMode(13, INPUT);
 }
 
 void loop() {
-  sensorValue = digitalRead(13);
-  Serial.println(sensorValue);
-  if ((millis() - lastTime) > timerDelay) {
-    String sensorReadings = getSensorReading();
-    notifyClients(sensorReadings);
-    lastTime = millis();
+
+  status = digitalRead(13);
+
+  
+  if (incoMessage == "on" && status == 1){
+      digitalWrite(LED_BUILTIN, HIGH);
+      if ((millis() - lastTime) > timerDelay) {
+      notifyClients();
+      lastTime = millis();
   }
+    }
+  else if (incoMessage == "off" || status == 0) {
+      digitalWrite(LED_BUILTIN, LOW);
+      if ((millis() - lastTime) > timerDelay) {
+      ws.textAll(String(0));
+      lastTime = millis();
+    }
+  }
+  delay(10);
   ws.cleanupClients();
 }
