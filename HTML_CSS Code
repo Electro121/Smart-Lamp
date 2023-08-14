@@ -18,13 +18,13 @@
         .heaf {
             font-family: Arial, sans-serif;
             text-align: center;
-            margin-top: 50px;
+            margin-top: 30px;
             color: rgb(0, 0, 0);
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
             padding: 1em;
             background-color: #ffffff;
             border: 8px;
-            font-size: 30px;
+            font-size: 28px;
             border-radius: 8px;
             margin-left: 50px;
             margin-right: 50px;
@@ -38,20 +38,43 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            margin-top: 50px;
+            margin-top: 30px;
         }
         #btn {
             cursor: pointer;
         }
+
+        .power-button {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-top: 20px;
+        }
+        #power-btn {
+            cursor: pointer;
+            padding: 10px 20px;
+            background-color: #d62830;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+        /*#power-btn:hover {
+            background-color: #2980b9;
+        }*/
+        
         footer {
             color: black;
             font-size: smaller;
-            margin-bottom: 1px;
+            margin-bottom: 0;
         }
     </style>
     </head>
     <body>
-        <div class="head"><h1>Smart Light Control</h1></h1></div>
+        <div class="head">
+            <h1>Smart Light Control</h1>
+        </div>
         <section class="heaf">
             <p2 id="ok"><strong>Light Status:</strong></p2>
             <span id="key">OFF</span>
@@ -59,22 +82,22 @@
             <i id="btn" class="fa-regular fa-lightbulb fa-8x" type="button"></i>
         </div>
         </section>
+        <div class="power-button">
+            <button id="power-btn" class="p2btn" type="button">Power Off</button>
+        </div>
         <footer>
-            <p id="footer">&copy; RS63 BRA Group-5 All rights reserved.</p>
+            <p id="footer">&copy; RS63 Robotics Group-5 All rights reserved.</p>
         </footer>
     </body>
     <script>
-        /*var gateway = `ws://${window.location.hostname}/ws`;
+        
+        var gateway = `ws://esp.local/ws`;
         var websocket;
         // Init web socket when the page loads
         window.addEventListener('load', onload);
 
         function onload(event) {
             initWebSocket();
-        }
-
-        function getReadings(){
-            websocket.send("getReadings");
         }
 
         function initWebSocket() {
@@ -88,38 +111,60 @@
         // When websocket is established, call the getReadings() function
         function onOpen(event) {
             console.log('Connection opened');
-            getReadings();
         }
 
         function onClose(event) {
             console.log('Connection closed');
             setTimeout(initWebSocket, 2000);
         }
-
-        // Function that receives the message from the ESP32 with the readings
+        let dt;
         function onMessage(event) {
             console.log(event.data);
-            var myObj = JSON.parse(event.data);
-            var keys = Object.keys(myObj);
-
-            for (var i = 0; i < keys.length; i++){
-                var key = keys[i];
-                document.getElementById(key).innerHTML = myObj[key];
-            }
-        }*/
-        let clicked = false;
+            dt = event.data
+           // btxt.innerHTML = dt;
+           handleText();
+        }
+        let clicked = false
         const bnt = document.getElementById("btn");
         const btxt = document.getElementById("key");
-        bnt.addEventListener('click', function(e){
-                    if(clicked == false) {
-                        clicked = true;
-                        bnt.classList.replace("fa-regular", "fa-solid");
-                        btxt.innerHTML = "ON"
+        btn.addEventListener('click', function(e) {
+            if(clicked == false) {
+                clicked = true;
+                websocket.send("clicked");
+            } else {
+                clicked = false;
+                websocket.send("rclicked");
+            }
+        });
+        
+        function handleText() {
+            if(dt== "1") {
+                btxt.textContent = "ON";
+                bnt.classList.replace("fa-regular", "fa-solid");
+            }
+            else {
+                btxt.textContent = "OFF";
+                bnt.classList.replace("fa-solid", "fa-regular");
+            }
+        }
+
+        const pBtn = document.getElementById("power-btn");
+        let pressed = false;
+        pBtn.addEventListener('click', function(e) {
+            if(pressed == false) {
+                        pressed = true;
+                        console.log("Button has been clicked");
+                        pBtn.innerHTML = "Power On";
+                        pBtn.style.backgroundColor = '#1bc531';
+                        websocket.send('on');
+
                 } else {
-                    clicked = false;
-                    bnt.classList.replace("fa-solid", "fa-regular");
-                    btxt.innerHTML = "OFF"
+                    pressed = false;
+                    pBtn.innerHTML = "Power Off";
+                    pBtn.style.backgroundColor = '#d62830';
+                    websocket.send('off');
                 }
         });
+
     </script>
 </html>
