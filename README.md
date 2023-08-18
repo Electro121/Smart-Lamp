@@ -1,2 +1,2 @@
 # Smart-Lamp
-Greetigs! this is a basic project by Brac University RS robotics group-5.
+Greetings! This is a basic project by me that demonstrates a smart lamp. The lamp can be controlled through the web.
