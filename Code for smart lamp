@@ -4,10 +4,12 @@
 #include <ESPAsyncWebServer.h>
 #include <Arduino_JSON.h>
 #include <ESPmDNS.h>
+#include <SPIFFS.h>
+
+#define buzzer 27
 
 const char* ssid = "Enkindu";
 const char* password = "rimon@555";
-
 
 unsigned long lastTime = 0;
 unsigned long timerDelay = 1500;
@@ -38,17 +40,32 @@ void processReceivedMessage(const String& message) {
   Serial.println("Received message: " + message);
 }
 
+void fun() {
+
+  Serial.println(incoMessage);
+  if (status == 1) {
+    notifyClients();
+  } else if (status == 0) {
+    digitalWrite(LED_BUILTIN, LOW);
+    if ((millis() - lastTime) > timerDelay) {
+      ws.textAll(String(0));
+      lastTime = millis();
+    }
+  }
+}
 
 void onEvent(AsyncWebSocket* server, AsyncWebSocketClient* client, AwsEventType type, void* arg, uint8_t* data, size_t len) {
   switch (type) {
     case WS_EVT_CONNECT:
       Serial.printf("WebSocket client #%u connected from %s\n", client->id(), client->remoteIP().toString().c_str());
+      notifyClients();
       break;
     case WS_EVT_DISCONNECT:
       Serial.printf("WebSocket client #%u disconnected\n", client->id());
       break;
     case WS_EVT_DATA:
       handleWebSocketMessage(arg, data, len);
+      // fun();
       break;
     case WS_EVT_PONG:
     case WS_EVT_ERROR:
@@ -69,7 +86,7 @@ const char index_html[] PROGMEM = R"rawliteral(
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta http-equiv="X-UA-Compatible" content="ie=edge" />
-    <title>My Webpage</title>
+    <title>Smart Light</title>
     <style>
         .head {
             font-family: Arial, sans-serif;
@@ -147,7 +164,7 @@ const char index_html[] PROGMEM = R"rawliteral(
         </div>
         </section>
         <div class="power-button">
-            <button id="power-btn" class="p2btn" type="button">Power Off</button>
+            <button id="power-btn" class="p2btn" type="button">System Off</button>
         </div>
         <footer>
             <p id="footer">&copy; RS63 Robotics Group-5 All rights reserved.</p>
@@ -155,7 +172,7 @@ const char index_html[] PROGMEM = R"rawliteral(
     </body>
     <script>
         
-        var gateway = `ws://esp.local/ws`;
+        var gateway = `ws://${window.location.hostname}/ws`;
         var websocket;
         // Init web socket when the page loads
         window.addEventListener('load', onload);
@@ -163,6 +180,8 @@ const char index_html[] PROGMEM = R"rawliteral(
         function onload(event) {
             initWebSocket();
         }
+        const bnt = document.getElementById("btn");
+        const btxt = document.getElementById("key");
 
         function initWebSocket() {
             console.log('Trying to open a WebSocket connection…');
@@ -188,9 +207,8 @@ const char index_html[] PROGMEM = R"rawliteral(
            // btxt.innerHTML = dt;
            handleText();
         }
-        
         function handleText() {
-            if(dt== "1") {
+            if(dt== "1" && pressed == true) {
                 btxt.textContent = "ON";
                 bnt.classList.replace("fa-regular", "fa-solid");
             }
@@ -206,22 +224,24 @@ const char index_html[] PROGMEM = R"rawliteral(
             if(pressed == false) {
                         pressed = true;
                         console.log("Button has been clicked");
-                        pBtn.innerHTML = "Power On";
+                        pBtn.innerHTML = "System On";
                         pBtn.style.backgroundColor = '#1bc531';
                         websocket.send('on');
+                        handleText();
 
                 } else {
                     pressed = false;
-                    pBtn.innerHTML = "Power Off";
+                    pBtn.innerHTML = "System Off";
                     pBtn.style.backgroundColor = '#d62830';
                     websocket.send('off');
+                    handleText();
                 }
         });
 
     </script>
 </html>
 )rawliteral";
-
+const int relayPin = 26;
 void setup() {
   Serial.begin(115200);
   WiFi.begin(ssid, password);
@@ -230,13 +250,22 @@ void setup() {
     delay(1000);
     Serial.println("Connecting to WiFi...");
   }
-
-  Serial.println(WiFi.localIP());
-  if (MDNS.begin("ESP")) {
-    Serial.println("Your mDNS server name is esp.local/");
+  if (MDNS.begin("smartlight")) {
+    Serial.println("Your mDNS server name is smartlight.local/");
   }
+  Serial.print("/nLocal IP: ");
+  Serial.print(WiFi.localIP());
+  Serial.println("\nSubnet Musk: ");
+  Serial.print(WiFi.subnetMask());
+  Serial.println("\nGateway IP: ");
+  Serial.print(WiFi.gatewayIP());
+  Serial.println("\nDNS 1: ");
+  Serial.print(WiFi.dnsIP(0));
+  Serial.println("\nDNS 2: ");
+  Serial.print(WiFi.dnsIP(1));
 
-  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
+
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest* request) {
     request->send_P(200, "text/html", index_html);
   });
 
@@ -245,28 +274,32 @@ void setup() {
 
   server.begin();
   pinMode(LED_BUILTIN, OUTPUT);
+  pinMode(relayPin, OUTPUT);
+  pinMode(buzzer, OUTPUT);
   pinMode(13, INPUT);
 }
-
+int newStat = 0;
 void loop() {
 
   status = digitalRead(13);
-
-  
-  if (incoMessage == "on" && status == 1){
-      digitalWrite(LED_BUILTIN, HIGH);
-      if ((millis() - lastTime) > timerDelay) {
+  if (incoMessage == "on" && status == 1) {
+    digitalWrite(LED_BUILTIN, HIGH);
+    digitalWrite(relayPin, HIGH);
+    if (status != newStat) {
+      newStat = status;
+      digitalWrite(buzzer, HIGH);
+      delay(100);
+      digitalWrite(buzzer, LOW);
       notifyClients();
-      lastTime = millis();
-  }
     }
-  else if (incoMessage == "off" || status == 0) {
-      digitalWrite(LED_BUILTIN, LOW);
-      if ((millis() - lastTime) > timerDelay) {
-      ws.textAll(String(0));
-      lastTime = millis();
+  } else if (incoMessage == "off" || status == 0) {
+    digitalWrite(LED_BUILTIN, LOW);
+    digitalWrite(relayPin, LOW);
+    if (status != newStat) {
+      newStat = status;
+      notifyClients();
     }
   }
-  delay(10);
   ws.cleanupClients();
+  delay(100);
 }
