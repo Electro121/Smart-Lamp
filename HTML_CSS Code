@@ -5,7 +5,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta http-equiv="X-UA-Compatible" content="ie=edge" />
-    <title>My Webpage</title>
+    <title>Smart Light</title>
     <style>
         .head {
             font-family: Arial, sans-serif;
@@ -14,6 +14,29 @@
             text-align: center;
             padding: 1em 0;
             border-radius: 10px;
+        }
+        .input {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        #messageInput {
+            width: 78%;
+            padding: 9.8px;
+            margin-top: 5px;
+            margin-bottom: 4px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 16px;
+            box-sizing: border-box;
+            text-align: center;
+        }
+        #ipBtn {
+            padding: 9px;
+            margin-left: 2px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            cursor: pointer;
         }
         .heaf {
             font-family: Arial, sans-serif;
@@ -24,10 +47,10 @@
             padding: 1em;
             background-color: #ffffff;
             border: 8px;
-            font-size: 28px;
+            font-size: 25px;
             border-radius: 8px;
-            margin-left: 50px;
-            margin-right: 50px;
+            margin-left: 30px;
+            margin-right: 30px;
         }
         #ok {
             text-align: center;
@@ -40,10 +63,6 @@
             align-items: center;
             margin-top: 30px;
         }
-        #btn {
-            cursor: pointer;
-        }
-
         .power-button {
             display: flex;
             justify-content: center;
@@ -60,45 +79,49 @@
             font-size: 16px;
             transition: background-color 0.3s;
         }
-        /*#power-btn:hover {
-            background-color: #2980b9;
-        }*/
-        
-        footer {
-            color: black;
-            font-size: smaller;
-            margin-bottom: 0;
-        }
     </style>
     </head>
     <body>
         <div class="head">
             <h1>Smart Light Control</h1>
         </div>
+        <div class="input">
+            <input type="text" id="messageInput" placeholder="Type IP Adress of the ESP32">
+            <button id="ipBtn" style="font-size: 17px;">save</button>    
+        </div>
         <section class="heaf">
             <p2 id="ok"><strong>Light Status:</strong></p2>
             <span id="key">OFF</span>
         <div id="button">
-            <i id="btn" class="fa-regular fa-lightbulb fa-8x" type="button"></i>
+            <i id="btn" class="fa-regular fa-lightbulb fa-7x"></i>
         </div>
         </section>
         <div class="power-button">
-            <button id="power-btn" class="p2btn" type="button">Power Off</button>
+            <button id="power-btn" class="p2btn" type="button">System Off</button>
         </div>
-        <footer>
-            <p id="footer">&copy; RS63 Robotics Group-5 All rights reserved.</p>
-        </footer>
     </body>
     <script>
-        
-        var gateway = `ws://esp.local/ws`;
-        var websocket;
-        // Init web socket when the page loads
-        window.addEventListener('load', onload);
-
-        function onload(event) {
+       var savedIP = localStorage.getItem('savedIP');
+        if (savedIP) {
+            gateway = `ws://${savedIP}/ws`;
             initWebSocket();
         }
+
+        const messageIn = document.getElementById("messageInput");
+        const saveIP = document.getElementById("ipBtn");
+
+        // Double-click event to save the IP address in browser's local storage
+        saveIP.addEventListener('dblclick', function(e) {
+            const messageText = messageIn.value;
+            gateway = `ws://${messageText}/ws`;
+            initWebSocket();
+            localStorage.setItem('savedIP', messageText); // Save IP in browser's local storage
+        });
+        
+        window.addEventListener('load', onload);
+
+        const bnt = document.getElementById("btn");
+        const btxt = document.getElementById("key");
 
         function initWebSocket() {
             console.log('Trying to open a WebSocket connection…');
@@ -108,7 +131,6 @@
             websocket.onmessage = onMessage;
         }
 
-        // When websocket is established, call the getReadings() function
         function onOpen(event) {
             console.log('Connection opened');
         }
@@ -121,24 +143,10 @@
         function onMessage(event) {
             console.log(event.data);
             dt = event.data
-           // btxt.innerHTML = dt;
            handleText();
         }
-        let clicked = false
-        const bnt = document.getElementById("btn");
-        const btxt = document.getElementById("key");
-        btn.addEventListener('click', function(e) {
-            if(clicked == false) {
-                clicked = true;
-                websocket.send("clicked");
-            } else {
-                clicked = false;
-                websocket.send("rclicked");
-            }
-        });
-        
         function handleText() {
-            if(dt== "1") {
+            if(dt== "1" && pressed == true) {
                 btxt.textContent = "ON";
                 bnt.classList.replace("fa-regular", "fa-solid");
             }
@@ -154,15 +162,17 @@
             if(pressed == false) {
                         pressed = true;
                         console.log("Button has been clicked");
-                        pBtn.innerHTML = "Power On";
+                        pBtn.innerHTML = "System On";
                         pBtn.style.backgroundColor = '#1bc531';
                         websocket.send('on');
+                        handleText();
 
                 } else {
                     pressed = false;
-                    pBtn.innerHTML = "Power Off";
+                    pBtn.innerHTML = "System Off";
                     pBtn.style.backgroundColor = '#d62830';
                     websocket.send('off');
+                    handleText();
                 }
         });
 
