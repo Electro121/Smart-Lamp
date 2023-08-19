@@ -167,7 +167,7 @@ const char index_html[] PROGMEM = R"rawliteral(
             <button id="power-btn" class="p2btn" type="button">System Off</button>
         </div>
         <footer>
-            <p id="footer">&copy; RS63 Robotics Group-5 All rights reserved.</p>
+            <p id="footer">&copy; electro121 All rights reserved.</p>
         </footer>
     </body>
     <script>
