@@ -8,8 +8,8 @@
 
 #define buzzer 27
 
-const char* ssid = "Enkindu";
-const char* password = "rimon@555";
+const char* ssid = "your_SSID";
+const char* password = "your_PASSWORD";
 
 unsigned long lastTime = 0;
 unsigned long timerDelay = 1500;
